@@ -1,0 +1,1262 @@
+#+INCLUDE: ../theme/style.org
+#+TITLE:  Polymorphism and Typeclasses
+#+KEYWORDS: polymorphism ad-hoc typeclass haskell fp
+
+* Polymorphism and Typeclasses
+** Polymorphism 
+*** Parametric Polymorphism 
+
+_Parametric polymorphism_ - Type of a value has one or more
+unconstrained type variables. The type variable can take any value.
+
+ - Single algorithm can have many types.
+
+ - Example: Haskell function id, head and tail
+
+Examples: 
+
+#+BEGIN_SRC haskell
+  -- Identity function.
+  id :: a -> a 
+  id x = x 
+
+  > id "hello"
+  "hello"
+  it :: [Char]
+  > id (Just 10)
+  Just 10
+  it :: Num a => Maybe a
+  > 
+
+  -- List functions.
+  --
+  --
+  -- The type 'a' can be replaced by Int, String, Maybe Int, (Int -> Int)
+  --  or anything.
+  --------------------
+
+  head (x:xs) = x
+  head []     = error "*** Exception: Prelude.head: empty list"              
+
+  > :t head
+  head :: [a] -> a
+  > 
+  > :t tail
+  tail :: [a] -> [a]
+  > 
+
+  > :t head ["hello", "world", "haskell"]
+  head ["hello", "world", "haskell"] :: [Char]
+  > head ["hello", "world", "haskell"]
+  "hello"
+  it 
+
+  > :t head [\x -> x + 1, \a -> a * 3, \b -> b -5]
+  head [\x -> x + 1, \a -> a * 3, \b -> b -5] :: Num a => a -> a
+  > head [\x -> x + 1, \a -> a * 3, \b -> b -5] $ 9
+  10
+  it :: Num a => a
+  > 
+
+#+END_SRC
+
+*** Ad-hoc Polymorphism 
+
+It allows functions to have different algorithms for each type. The
+choice of the algorithme is determined by the context.
+
+In Haskell ad-hoc polymorphism is achieved through typeclasses which
+are similar to Java interface. A typeclass defines a set of functions
+that must be implemented by every instance of a type class.
+
+The functions defined by a typeclass can have different behaviors
+depending on the instance of type class and can be used with all type
+class instances. It allows the functions and operators (binary
+functions) such as (+) plus, (-) minus, (>>=) monad bind operator to
+be reused with many different types and have different algorithms for
+each type.
+
+Benefits: 
+
+ - Reuse operators and functiosn with different types.
+
+ - Operator overloading.
+
+ - Functions with a different algorithm for each type. 
+
+ - Code Reuse for free.
+
+Example: The type class _Functor_ 
+
+The function fmap defined by the type class Functor has different
+behaviors (algorithms) for each instance such as list, Maybe and
+Either types. 
+
+
+#+BEGIN_SRC haskell 
+  -- Functor Type Class 
+  -- 
+  > :info Functor
+  class Functor (f :: * -> *) where
+    fmap :: (a -> b) -> f a -> f b
+    (<$) :: a -> f b -> f a
+    {-# MINIMAL fmap #-}
+
+
+  -- Instances of Functor type class 
+  --
+  > :info Functor
+  class Functor (f :: * -> *) where
+    fmap :: (a -> b) -> f a -> f b
+    (<$) :: a -> f b -> f a
+    {-# MINIMAL fmap #-}
+      -- Defined in ‘GHC.Base’
+  instance Functor (Either a) -- Defined in ‘Data.Either’
+  instance Functor [] -- Defined in ‘GHC.Base’
+  instance Functor Maybe -- Defined in ‘GHC.Base’
+  instance Functor IO -- Defined in ‘GHC.Base’
+  instance Functor ((->) r) -- Defined in ‘GHC.Base’
+  instance Functor ((,) a) -- Defined in ‘GHC.Base’
+  > 
+
+  -- Function fmap applies a function (a -> b) to a Functor. 
+  --
+  > :t fmap
+  fmap :: Functor f => (a -> b) -> f a -> f b
+  > 
+
+  --- fmap for Functor instance List 
+  -------------------------------------------
+  data Maybe a = Nothing | Just a 
+
+  instance Functor [a] where
+      fmap = map 
+
+  > fmap (\x -> x + 1) [1, 2, 3, 4, 5]
+  [2,3,4,5,6]
+  it :: Num b => [b]
+  > 
+
+  --- fmap for Functor instance Maybe
+  -------------------------------------------
+
+  instance Functor (Maybe a) where
+      fmap fn (Just a) = Just (fn a)
+      fmap fn Nothing  = Nothing 
+
+  > :t fmap (\x -> x + 1) (Just 10)
+  fmap (\x -> x + 1) (Just 10) :: Num b => Maybe b
+  > 
+
+  > fmap (\x -> x + 1) (Just 10)
+  Just 11
+  it :: Num b => Maybe b
+  > 
+  > fmap (\x -> x + 1) Nothing
+  Nothing
+  it :: Num b => Maybe b
+  > 
+
+
+  --- fmap for Functor instance Either 
+  -------------------------------------------
+
+  data Either a b = Left a | Right b
+
+  instance Functor (Either a b) where
+      fmap fn (Right b) = Right (fn b)
+      fmap fn (Left a)  = Left a 
+
+  > fmap (\x -> x + 1) (Right 10)
+  Right 11
+  it :: Num b => Either a b                        
+
+  > fmap (\x -> x + 1) (Left "Error: I can't parse the number")
+  Left "Error: I can't parse the number"
+  it :: Num b => Either [Char] b
+  > 
+
+
+
+#+END_SRC
+
+** Typeclasses 
+
+*Standard Typeclasses*
+
+ - _Num_ - Numeric types. Defines numertic operators (+), (-), (*) and
+   functiosn abs and signum.
+
+   - Methods:   (+), (-), (*), abs, signum 
+   - Standard Instances:
+     - Int       - 29 bits Signed Integer
+     - Integer   - Arbitrary precision integer
+     - Float     - IEEE 32-bits Float point
+     - Double    - IEEE 64-bit Float Point
+
+ - _Ord_ - Comparison.
+   - Operators: (<) (<=) (>) (>=) min and max 
+
+ - _Enum_ - Enumeration. Allows syntax such as [1 ... 10], [0.5 .. 0.1 .. 10] ['a' .. 'z']
+
+ - _Eq_ - Equality.
+   - Operator (==) and (/=)
+
+ - _Show_ - Defines method show, which converts an instance of this
+   type class to string.
+
+ - _Read_ - Defines the function read, which parses a string into a value.
+
+
+*Type Classes*
+
+Num 
+
+#+BEGIN_SRC haskell 
+> :info Num
+class Num a where
+  (+) :: a -> a -> a
+  (-) :: a -> a -> a
+  (*) :: a -> a -> a
+  negate :: a -> a
+  abs :: a -> a
+  signum :: a -> a
+  fromInteger :: Integer -> a
+  {-# MINIMAL (+), (*), abs, signum, fromInteger, (negate | (-)) #-}
+
+#+END_SRC
+
+Fractional
+
+#+BEGIN_SRC haskell
+class Num a => Fractional a where 
+  (/) :: a -> a -> a
+  recip :: a -> a
+  fromRational :: Rational -> a
+#+END_SRC
+
+Eq
+
+#+BEGIN_SRC haskell 
+class Eq a where
+  (==) :: a -> a -> Bool
+  (/=) :: a -> a -> Bool
+#+END_SRC
+
+Ord 
+
+#+BEGIN_SRC haskell
+data Ordering = LT | EQ | GT
+
+class Eq a => Ord a where
+  compare :: a -> a -> Ordering
+  (<) :: a -> a -> Bool
+  (<=) :: a -> a -> Bool
+  (>) :: a -> a -> Bool
+  (>=) :: a -> a -> Bool
+  max :: a -> a -> a
+  min :: a -> a -> a
+  {-# MINIMAL compare | (<=) #-}
+#+END_SRC
+
+Enum 
+
+#+BEGIN_SRC haskell 
+> :info Enum
+class Enum a where
+  succ :: a -> a
+  pred :: a -> a
+  toEnum :: Int -> a
+  fromEnum :: a -> Int
+  enumFrom :: a -> [a]
+  enumFromThen :: a -> a -> [a]
+  enumFromTo :: a -> a -> [a]
+  enumFromThenTo :: a -> a -> a -> [a]
+  {-# MINIMAL toEnum, fromEnum #-}
+#+END_SRC
+
+** Examples 
+*** Refactoring functions to work with many types
+
+Example: Typeclasses allows writing generic functions that can be used
+with all instances of a type class. In this example the function fun1
+can be refactored to work with all instances of Num typeclass.
+
+#+BEGIN_SRC haskell 
+  :{
+  fun1 :: Double -> Double -> Double
+  fun1 x y = 2 * x + 4 * y         
+  :}
+
+   > fun1 3 4
+  22.0
+  it :: Double
+  > fun1 3 4.23
+  22.92
+  it :: Double
+  >
+
+  > let a = 10 :: Int
+  a :: Int
+  > let c = 20 :: Int
+  c :: Int
+  > 
+  > fun1 a b
+
+  <interactive>:189:6: error:
+      • Couldn't match expected type ‘Double’ with actual type ‘Int’
+      • In the first argument of ‘fun1’, namely ‘a’
+        In the expression: fun1 a b
+        In an equation for ‘it’: it = fun1 a b
+
+  <interactive>:189:8: error: Variable not in scope: b :: Double
+  > 
+
+  --- This function can be rewritten to work with
+  --- all members of Num type class.
+
+  :{
+  fun :: Num a => a -> a -> a
+  fun x y = 2 * x + 4 * y         
+  :}
+
+  > fun a c
+  100
+  it :: Int
+  > fun 3.0 10.3
+  47.2
+  it :: Fractional a => a
+  > 
+   > let x = 10.4 :: Double
+  x :: Double
+  > let y = 20.5 :: Double
+  y :: Double
+  > fun x y 
+  102.8
+  it :: Double
+  > 
+
+#+END_SRC
+
+Example: Generic monad combinator. The functions mapM2 applies a
+function fn to two monad instances. 
+
+#+BEGIN_SRC haskell 
+  > :t (>>=)
+  (>>=) :: Monad m => m a -> (a -> m b) -> m b
+  > 
+  > :t return
+  return :: Monad m => a -> m a
+  > 
+
+  > :info Monad
+  class Applicative m => Monad (m :: * -> *) where
+    (>>=) :: m a -> (a -> m b) -> m b
+    (>>) :: m a -> m b -> m b
+    return :: a -> m a
+    fail :: String -> m a
+    {-# MINIMAL (>>=) #-}
+          -- Defined in ‘GHC.Base’
+  instance Monad (Either e) -- Defined in ‘Data.Either’
+  instance Monad [] -- Defined in ‘GHC.Base’
+  instance Monad Maybe -- Defined in ‘GHC.Base’
+  instance Monad IO -- Defined in ‘GHC.Base’
+  instance Monad ((->) r) -- Defined in ‘GHC.Base’
+  instance Monoid a => Monad ((,) a) -- Defined in ‘GHC.Base’
+  > 
+
+
+  :{
+  mapM2 :: (a -> b -> c) -> Maybe a -> Maybe b -> Maybe c
+  mapM2 fn ma mb = do
+    a <- ma
+    b <- mb
+    return $ fn a b
+  :}
+
+
+  :{
+  mapM2a :: (a -> b -> c) -> Maybe a -> Maybe b -> Maybe c
+  mapM2a fn ma mb = 
+    ma >>= \ a ->
+    mb >>= \ b -> return $ fn a b
+  :}
+   
+   
+  > mapM2 (+) (Just 10) (Just 4)
+  Just 14
+  it :: Num c => Maybe c
+  > mapM2 (+) (Just 10) Nothing
+  Nothing
+  it :: Num c => Maybe c
+  > mapM2 (+) Nothing (Just 4)
+  Nothing
+  it :: Num c => Maybe c
+  > 
+
+  > mapM2 (+) (Right 10) (Right 5)
+
+  <interactive>:225:12: error:
+      • Couldn't match expected type ‘Maybe c’
+                    with actual type ‘Either a0 Integer’
+      • In the second argument of ‘mapM2’, namely ‘(Right 10)’
+        In the expression: mapM2 (+) (Right 10) (Right 5)
+        In an equation for ‘it’: it = mapM2 (+) (Right 10) (Right 5)
+      • Relevant bindings include
+
+  > mapM2 (+) [1, 2, 3] [5, 6]
+
+  <interactive>:227:11: error:
+      • Couldn't match expected type ‘Maybe c’
+                    with actual type ‘[Integer]’
+      • In the second argument of ‘mapM2’, namely ‘[1, 2, 3]’
+        In the expression: mapM2 (+) [1, 2, 3] [5, 6]
+        In an equation for ‘it’: it = mapM2 (+) [1, 2, 3] [5, 6]
+      • Relevant bindings include
+          it :: Maybe c (bound at <interactive>:227:1)
+
+  <interactive>:227:21: error:
+      • Couldn't match expected type ‘Maybe c’
+                    with actual type ‘[Integer]’
+      • In the third argument of ‘mapM2’, namely ‘[5, 6]’
+        In the expression: mapM2 (+) [1, 2, 3] [5, 6]
+        In an equation for ‘it’: it = mapM2 (+) [1, 2, 3] [5, 6]
+      • Relevant bindings include
+          it :: Maybe c (bound at <interactive>:227:1)
+  > 
+
+
+  > mapM2a (+) (Just 10) (Just 15)
+  Just 25
+  it :: Num c => Maybe c
+  > 
+  > mapM2a (+) [1, 2, 3] [4, 5]
+
+  <interactive>:258:12: error:
+      • Couldn't match expected type ‘Maybe c’
+                    with actual type ‘[Integer]’
+      • In the second argument of ‘mapM2a’, namely ‘[1, 2, 3]’
+        In the expression: mapM2a (+) [1, 2, 3] [4, 5]
+        In an equation for ‘it’: it = mapM2a (+) [1, 2, 3] [4, 5]
+      • Relevant bindings include
+          it :: Maybe c (bound at <interactive>:258:1)
+
+  --- This function can be rewritten to operate on any Monad instance
+
+  :{
+  mapM2 :: Monad m => (a -> b -> c) -> m a -> m b -> m c
+  mapM2 fn ma mb = do
+    a <- ma
+    b <- mb
+    return $ fn a b
+  :}
+
+  :{
+  mapM2b :: Monad m => (a -> b -> c) -> m a -> m b -> m c
+  mapM2b fn ma mb = 
+    ma >>= \a -> 
+    mb >>= \b -> 
+    return $ fn a b
+  :}
+   
+
+  > mapM2 (+) (Just 10) (Just 4)
+  Just 14
+  it :: Num c => Maybe c
+        
+  > mapM2 (,) [1, 2, 3] ["a", "b"]
+  [(1,"a"),(1,"b"),(2,"a"),(2,"b"),(3,"a"),(3,"b")]
+  it :: Num a => [(a, [Char])]
+  >
+
+  > mapM2 (+) (Right 10) (Right 4)
+  Right 14
+  it :: Num c => Either a c
+        
+  > mapM2 (+) (Right 10) (Left "Failed")
+  Left "Failed"
+  it :: Num c => Either [Char] c
+  > 
+
+  > mapM2b (+) (Just 10) (Just 5)
+  Just 15
+  it :: Num c => Maybe c
+  > mapM2b (+) (Just 10) Nothing
+  Nothing
+  it :: Num c => Maybe c
+  > mapM2b (+) (Right 10) (Right 5)
+  Right 15
+  it :: Num c => Either a c
+  > 
+
+#+END_SRC
+
+*** Defining typeclasses instances 
+**** Defining a new instance of typeclass Functor 
+
+#+BEGIN_SRC haskell 
+  > data Identity a = Identity a deriving (Eq, Read, Show)
+  data Identity a = Identity a
+
+  > Identity 10
+  Identity 10
+  it :: Num a => Identity a
+
+  > Identity "Hello world"
+  Identity "Hello world"
+  it :: Identity [Char]
+  > 
+
+  :{ 
+  instance Functor Identity where
+      fmap fn (Identity a) = Identity (fn a)
+  :}
+
+   
+  > fmap (\x -> x + 1) (Identity 9)
+  Identity 10
+  it :: Num b => Identity b
+        
+  > fmap (\x -> x ++ " world") (Identity "Hello ")
+  Identity "Hello  world"
+  it :: Identity [Char]
+  > 
+
+#+END_SRC
+
+**** Defining a new instance of typeclass Num.
+
+#+BEGIN_SRC haskell 
+  > :info Num
+  class Num a where
+    (+) :: a -> a -> a
+    (-) :: a -> a -> a
+    (*) :: a -> a -> a
+    negate :: a -> a
+    abs :: a -> a
+    signum :: a -> a
+    fromInteger :: Integer -> a
+    {-# MINIMAL (+), (*), abs, signum, fromInteger, (negate | (-)) #-}
+      -- Defined in ‘GHC.Num’
+                   
+  instance Num Word -- Defined in ‘GHC.Num’
+  instance Num Integer -- Defined in ‘GHC.Num’
+  instance Num Int -- Defined in ‘GHC.Num’
+  instance Num Float -- Defined in ‘GHC.Float’
+  instance Num Double -- Defined in ‘GHC.Float’
+  > 
+
+
+  > data Vector3D = Vector3D (Double, Double, Double) deriving (Eq, Read, Show)
+  data Vector3D = Vector3D (Double, Double, Double)
+  > 
+               
+
+  -- Extractors
+  >  let vX (Vector3D (x, y, z)) = x 
+  vX :: Vector3D -> Double
+  >
+
+  > let vY (Vector3D (x, y, z)) = y 
+  vY :: Vector3D -> Double
+  > 
+
+  > let vZ (Vector3D (x, y, z)) = z
+  vZ :: Vector3D -> Double
+  > 
+
+  -- Smart constructor 
+
+  > let vec x y z = Vector3D (x, y, z)
+  vec :: Double -> Double -> Double -> Vector3D
+  >
+
+
+  :{
+  instance Num Vector3D where
+
+      -- (+) :: Num a => a -> a -> a
+      Vector3D (x1, y1, z1) + Vector3D (x2, y2, z2) =
+          vec (x1 + x2) (y1 + y2) (z1 + z2)
+
+      -- (*) :: Num a => a -> a -> a
+      Vector3D (x1, y1, z1) * Vector3D (x2, y2, z2) =
+           vec (x1 * x2) (y1 * y2) (z1 * z2)
+
+      -- (-) :: Num a => a -> a -> a
+      Vector3D (x1, y1, z1) - Vector3D (x2, y2, z2) =
+          vec (x1 - x2) (y1 - y2) (z1 - z2)
+
+      -- abs :: Num a => a -> a            
+      abs (Vector3D (x1, y1, z1)) = vec (abs x1) (abs y1) (abs z1)
+
+      -- Dummy operation for Vector3D - Don't care about this
+      -- operation.
+      --
+      -- signum :: Num a => a -> a
+      signum (Vector3D (x1, y1, z1)) =  Vector3D (-x1, -y1, -z1)
+
+      -- Dummy operation
+      --                                  
+      -- fromInteger :: Num a => Integer -> a
+      fromInteger x  = let a = fromIntegral x
+                       in Vector3D (a, a, a)
+
+  :}
+
+
+  > let norm (Vector3D (x, y, z)) = sqrt (x * x + y * y + z * z)
+  norm :: Vector3D -> Double
+  >
+
+  > let dist va vb = norm $ va - vb
+  dist :: Vector3D -> Vector3D -> Double
+  > 
+
+  > let scale f (Vector3D (x, y, z)) = vec (f * x) (f * y) (f * z)
+  scale :: Double -> Vector3D -> Vector3D
+  > 
+
+  --- Get unitary 3D vector with same direction as v
+  :{
+  versor v = scale f v
+      where 
+        f = 1.0 / norm v
+  :}      
+  versor :: Vector3D -> Vector3D
+  >          
+
+   
+  > vec 1 2 3
+  Vector3D (1.0,2.0,3.0)
+  it :: Vector3D
+  > 
+  > vec 1 2 3 + vec 3 4 5
+  Vector3D (4.0,6.0,8.0)
+  it :: Vector3D
+  > 
+  > vec 1 2 3 * vec 3 4 5
+  Vector3D (3.0,8.0,15.0)
+  it :: Vector3D
+  > 
+  > vec 1 2 3 - vec 3 4 5
+  Vector3D (-2.0,-2.0,-2.0)
+  it :: Vector3D
+  > 
+  > vec 3 4 5 - vec 1 2 3
+  Vector3D (2.0,2.0,2.0)
+  it :: Vector3D
+  > 
+  > norm $ vec 1 2 3
+  3.7416573867739413
+  it :: Double
+  > 
+
+  > dist (vec 10 4 5.0) (vec 2 7 8)
+  9.055385138137417
+  it :: Double
+  > 
+
+  > fromInteger 15 :: Vector3D 
+  Vector3D (15.0,15.0,15.0)
+  it :: Vector3D
+  > 
+
+  > - (vec 1 2 3)
+  Vector3D (-1.0,-2.0,-3.0)
+  it :: Vector3D
+  > 
+
+  > let ux k = scale k (Vector3D (1, 0, 0))
+  ux :: Double -> Vector3D
+  > 
+  > let uy k = scale k (Vector3D (0, 1, 0))
+  uy :: Double -> Vector3D
+  > 
+  > let uz k = scale k (Vector3D (0, 0, 1))
+  uz :: Double -> Vector3D
+  > 
+  > ux 10
+  Vector3D (10.0,0.0,0.0)
+  it :: Vector3D
+  > 
+  > ux 5.0
+  Vector3D (5.0,0.0,0.0)
+  it :: Vector3D
+  > 
+  > uz 9
+  Vector3D (0.0,0.0,9.0)
+  it :: Vector3D
+  > 
+  > ux 2 + uy 4 + uz 7
+  Vector3D (2.0,4.0,7.0)
+  it :: Vector3D
+  > 
+
+  -- Declare an instance of typeclass show to change the way a type is displayed.
+  :{
+  instance Show Vector3D where
+      show (Vector3D (x, y, z)) =
+          show $ "Vector = " ++ show x ++ "i + " ++ show y ++ "j + " ++ show z ++ "k"
+
+  :}   
+
+  > let v1 = Vector3D (4.5, 3.0, 2.0)
+  v1 :: Vector3D
+  > v1
+  "Vector = 4.5i + 3.0j + 2.0k"
+  it :: Vector3D
+  > 
+  > let v1 = Vector3D (4.5, -3.0, 2.0)
+  v1 :: Vector3D
+  > v1
+  "Vector = 4.5i + -3.0j + 2.0k"
+  it :: Vector3D
+  > 
+
+#+END_SRC
+
+**** Complex Number Implementation 
+
+#+BEGIN_SRC haskell 
+  import Text.Printf (printf)
+      
+
+
+  -- Complex number in rectangular form
+  -- 
+  data Cpl = Cpl Double Double deriving (Eq, Read)
+
+
+  > let real (Cpl x y) = x 
+  real :: Cpl -> Double
+  > 
+
+  > let imag (Cpl x y) = y 
+  imag :: Cpl -> Double
+  >
+
+  > let rad2deg rad = 180 / pi * rad 
+  rad2deg :: Floating a => a -> a
+
+  > let deg2rad deg = pi / 180 * deg
+  deg2rad :: Floating a => a -> a
+  > 
+           
+  -- Magnitude 
+  > let mag (Cpl x y) = sqrt ( x * x + y * y)
+  mag :: Cpl -> Double
+
+  -- Angle 
+  let phase (Cpl x y) = rad2deg $ atan2 y x 
+
+                 
+  -- Complex in polar form with angle in degrees.                       
+  :{
+  let polard r a =
+          let ar = deg2rad a -- angle in radians
+          in Cpl (r * cos ar) (r * sin ar)
+  :}
+
+
+  > let (+.) x y = Cpl x y
+  (+.) :: Double -> Double -> Cpl
+  > 
+
+  > let (<@) r a = polard r a
+  (<@) :: Double -> Double -> Cpl
+  > 
+   
+   
+             
+  :{         
+  instance Show Cpl where
+      show (Cpl x y) = printf "%.3f + %.3fj" x y 
+  :}
+
+  :{ 
+  instance Num Cpl where
+      (Cpl x1 y1) + (Cpl x2 y2) =
+          Cpl (x1 + x2) (y1 + y2)
+                                  
+      (Cpl x1 y1) - (Cpl x2 y2) =
+          Cpl (x1 - x2) (y1 - y2)
+
+      {- (x1 + y1*j)(x2 + y2*j) = x1 x2 + x1 y2 j + y1 x2 j + y1 y2 j j 
+                                = (x1 x2 - y1y2) + (x1 y2 + y1 x2)j
+      -}                            
+      (Cpl x1 y1) * (Cpl x2 y2) =
+          Cpl (x1 * x2 - y1 * y2) (x1 * y2 + y1 * x2)
+
+      negate (Cpl x y) = Cpl (-x) (-y)
+
+      abs (Cpl x y) = Cpl (sqrt $ x * x + y * y) 0                   
+
+      signum (Cpl x y) = Cpl (signum x) 0
+
+      fromInteger x = Cpl (fromIntegral x) 0 
+  :}
+
+
+  > :info Fractional
+  class Num a => Fractional a where
+    (/) :: a -> a -> a
+    recip :: a -> a
+    fromRational :: Rational -> a
+    {-# MINIMAL fromRational, (recip | (/)) #-}
+          -- Defined in ‘GHC.Real’
+  instance Fractional Float -- Defined in ‘GHC.Float’
+  instance Fractional Double -- Defined in ‘GHC.Float’
+  > 
+
+  :{
+  instance Fractional Cpl where
+      recip (Cpl x y) = let s = x * x + y * y
+                        in  Cpl (x / s) (- y / s)
+
+      fromRational x = Cpl 1.0 0 -- Dummy operation to satisfy the type class                      
+  :}   
+
+
+  > 10 +. 4
+  10.000 + 4.000j
+  it :: Cpl
+  > 
+
+  > 20.0 <@ 45.0
+  14.142 + 14.142j
+  it :: Cpl
+  > 10.0 <@ 60.0
+  5.000 + 8.660j
+  it :: Cpl
+  > 10.0 <@ 30.0
+  8.660 + 5.000j
+  it :: Cpl
+  > 
+
+
+  > polard 2.0 (-135.0)
+  -1.414 + -1.414j
+  it :: Cpl
+  > 
+  > phase $ polard 2.0 (-135.0)
+  -135.0
+  it :: Double
+  > mag $ polard 2.0 (-135.0)
+  2.0
+  it :: Double
+  > 
+
+   
+  > Cpl 3.0 (-4.0)
+  3.000 + -4.000j
+  it :: Cpl
+  > 
+  > Cpl 3.0 4.0 
+  3.000 + 4.000j
+  it :: Cpl
+  > 
+  > Cpl 3.0 0.0
+  3.000 + 0.000j
+  it :: Cpl
+  > 
+
+  > Cpl 10 3 + Cpl 4 5
+  14.000 + 8.000j
+  it :: Cpl
+  > Cpl 10 3 * Cpl 4 5
+  25.000 + 62.000j
+  it :: Cpl
+  > Cpl 0 1 * Cpl 0 1
+  -1.000 + 0.000j
+  it :: Cpl
+  > 
+
+  > let c1 = 10 +. 20
+  c1 :: Cpl
+  > c1
+  10.000 + 20.000j
+  it :: Cpl
+  > let c2 = 5 +. 0 
+  c2 :: Cpl
+  > 
+  > let c3 = 10.0 <@ 30.0 
+  c3 :: Cpl
+  > c3
+  8.660 + 5.000j
+  it :: Cpl
+  > 
+
+  > mag $ recip c3 
+  0.1
+  it :: Double
+  > phase $ recip c3 
+  -29.999999999999993
+  it :: Double
+  > 
+
+  > c1 / c2 
+  2.000 + 4.000j
+  it :: Cpl
+  > 
+  > c1 / c3 
+  1.866 + 1.232j
+  it :: Cpl
+  > 
+
+#+END_SRC
+
+**** Vector Arithmetic
+
+#+BEGIN_SRC haskell
+  data Vector = Vector [Double] deriving (Eq, Read, Show)
+
+  > :t uncurry
+  uncurry :: (a -> b -> c) -> (a, b) -> c
+  >               
+
+  :{ 
+  instance Num Vector where   
+
+      (Vector xs) + (Vector ys) = Vector $ map (uncurry (+)) (zip xs ys)
+
+      (Vector xs) - (Vector ys) = Vector $ map (uncurry (-)) (zip xs ys)
+
+      (Vector xs) * (Vector ys) = Vector $ map (uncurry (*)) (zip xs ys)                                
+      
+      negate (Vector xs) = Vector $ map (\x -> -1.0 * x) xs
+
+      abs (Vector xs) = Vector $ map abs xs
+
+      signum (Vector xs) = Vector $ map signum xs
+
+      -- Dummy operation (Don't care)                      
+      fromInteger x = Vector [fromIntegral x]
+  :}
+
+
+
+  :{
+  instance Fractional Vector where
+      -- recip (Vector xs) = Vector $ map (\x -> 1 / x) xs
+      --- Or
+      (Vector xs) / (Vector ys) = Vector $ map (uncurry (/)) (zip xs ys)    
+
+      -- Dummy operation - Don't care
+      fromRational x = Vector [fromRational x]
+  :}   
+
+  let apply fn (Vector xs) = Vector (map fn xs)
+   
+
+  > let scale k = apply (\x -> x * k)
+  scale :: Double -> Vector -> Vector
+
+
+  > let repeatv x size = Vector (take size $ repeat x)
+  repeatv :: Double -> Int -> Vector
+  > 
+           
+
+  > 
+  > :info Floating
+  class Fractional a => Floating a where
+    pi :: a
+    exp :: a -> a
+    log :: a -> a
+    sqrt :: a -> a
+    (**) :: a -> a -> a
+    logBase :: a -> a -> a
+    sin :: a -> a
+    cos :: a -> a
+    tan :: a -> a
+    asin :: a -> a
+    acos :: a -> a
+    atan :: a -> a
+    sinh :: a -> a
+    cosh :: a -> a
+    tanh :: a -> a
+    asinh :: a -> a
+    acosh :: a -> a
+    atanh :: a -> a
+    GHC.Float.log1p :: a -> a
+    GHC.Float.expm1 :: a -> a
+    GHC.Float.log1pexp :: a -> a
+    GHC.Float.log1mexp :: a -> a
+    {-# MINIMAL pi, exp, log, sin, cos, asin, acos, atan, sinh, cosh,
+                asinh, acosh, atanh #-}
+          -- Defined in ‘GHC.Float’
+  instance Floating Float -- Defined in ‘GHC.Float’
+  instance Floating Double -- Defined in ‘GHC.Float’
+  > 
+
+  :{
+  instance Floating Vector where
+      pi                    = Vector $ repeat pi
+      exp  (Vector xs)      = Vector (map exp xs)
+      log  (Vector xs)      = Vector (map log xs)
+      sqrt  (Vector xs)     = Vector (map sqrt xs)
+                              
+      (**) (Vector xs) (Vector ns) =
+          let n = head ns
+          in Vector $ map (\x -> x ** n) xs
+                                            
+      logBase (Vector xs) (Vector ns) =
+          let n = head ns
+          in Vector $ map (\x -> logBase x n) xs
+                                           
+      sin (Vector xs)       = Vector $ map sin xs
+      cos (Vector xs)       = Vector $ map cos xs
+      tan (Vector xs)       = Vector $ map tan xs
+      asin (Vector xs)      = Vector $ map asin xs
+      acos (Vector xs)      = Vector $ map acos xs
+      atan (Vector xs)      = Vector $ map atan xs
+      sinh (Vector xs)      = Vector $ map sinh xs
+      cosh (Vector xs)      = Vector $ map cosh xs
+      tanh (Vector xs)      = Vector $ map tanh xs
+      asinh (Vector xs)     = Vector $ map asinh xs
+      acosh (Vector xs)     = Vector $ map acosh xs
+      atanh (Vector xs)     = Vector $ map atanh xs
+  :}
+                          
+      
+
+
+  -- ------------------- Testing ------------------------ 
+
+
+
+  > 10.0 :: Vector
+  Vector [10.0]
+  it :: Vector
+  > 
+
+                             
+  > let xs = Vector [1.0, 2.0, 3.0, 4.0]
+  xs :: Vector
+  > let ys = Vector [10.0, 3.0, 5.0, 6.0] 
+  ys :: Vector
+  > 
+
+   
+  > ys - xs
+  Vector [9.0,1.0,2.0,2.0]
+  it :: Vector
+  > 
+  > xs * ys 
+  Vector [10.0,6.0,15.0,24.0]
+  it :: Vector
+  > 
+  > 
+
+  > apply sqrt xs
+  Vector [1.0,1.4142135623730951,1.7320508075688772,2.0]
+  it :: Vector
+  > 
+  > apply sqrt ys
+  Vector [3.1622776601683795,1.7320508075688772,2.23606797749979,2.449489742783178]
+  it :: Vector
+  >
+
+  > 
+  > scale 4.0 ys + scale 3.0 xs
+  Vector [43.0,18.0,29.0,36.0]
+  it :: Vector
+  > scale 4.0 ys / scale 3.0 xs
+  Vector [13.333333333333334,2.0,2.2222222222222223,2.0]
+  it :: Vector
+  > 
+
+  > xs + repeatv 3.0 5 + ys
+  Vector [14.0,8.0,11.0,13.0]
+  it :: Vector
+  > 
+  >
+
+  > exp xs
+  Vector [2.718281828459045,7.38905609893065,20.085536923187668,54.598150033144236]
+  it :: Vector
+  > 
+
+  > xs + sqrt ys
+  Vector [4.16227766016838,3.732050807568877,5.23606797749979,6.449489742783178]
+  it :: Vector
+  > 
+
+  > xs ** 5.0 - scale 3.0 ys
+  Vector [-29.0,23.0,228.0,1006.0]
+  it :: Vector
+  > 
+#+END_SRC
+
+**** Num a => Maybe a as instance of Num typeclass
+
+#+BEGIN_SRC haskell 
+:{
+mapM2 :: Monad m => (a -> b -> c) -> m a -> m b -> m c
+mapM2 fn ma mb = do
+  a <- ma
+  b <- mb
+  return $ fn a b 
+:}
+ 
+:{
+instance Num a => Num (Maybe a) where
+    (+) = mapM2 (+)
+    (-) = mapM2 (-)
+    (*) = mapM2 (*)
+
+    negate = fmap negate
+    abs    = fmap abs
+    signum = fmap signum
+
+    fromInteger x = Just (fromInteger x)
+:}
+#+END_SRC
+
+Running in REPL: 
+
+#+BEGIN_SRC haskell
+> Just 10 + Just 15
+Just 25
+it :: Num a => Maybe a
+
+> Just 10 + Nothing
+Nothing
+it :: Num a => Maybe a
+> 
+
+>  Just 10 + 20 * 5 + 3 * 4 * 5 
+Just 170
+it :: Num a => Maybe a
+
+> Just 10 + 20 * 5 + 3 * 4 * 5 + Nothing
+Nothing
+
+
+> signum $ Just (-10)
+Just (-1)
+it :: Num a => Maybe a
+> 
+> signum $ Just (10)
+Just 1
+it :: Num a => Maybe a
+> 
+
+> signum $ Nothing
+Nothing
+it :: Num a => Maybe a
+> 
+
+#+END_SRC
+
+*** Creating a type class
+
+#+BEGIN_SRC haskell 
+
+  :{
+  class Shape a where
+      shapePerimiter :: a -> Double
+      shapeArea      :: a -> Double
+  :}                 
+
+
+  -- Paste in the REPL 
+  > :{
+  - class Shape where
+  -     shapePerimiter :: Shape -> Double
+  -     shapeArea :: Shape -> Double
+  - :}                 
+  class Shape a where
+    shapePerimiter :: a -> Double
+    shapeArea :: a -> Double
+    {-# MINIMAL shapePerimiter, shapeArea #-}
+  >     
+  > 
+
+
+  data Square a = Square a deriving (Eq, Read, Show)
+
+  data Circle r = Circle r deriving (Eq, Read, Show)
+                
+  data Rectangle x y = Rectangle x y deriving (Eq, Read, Show)
+
+  :{                   
+  instance Shape (Square Double) where
+      shapePerimiter (Square a) = 4.0 * a
+      shapeArea (Square a) = a * a 
+  :}
+
+   :{                   
+  instance Shape (Circle Double) where
+      shapePerimiter (Circle r) = 2.0 * pi * r 
+      shapeArea (Circle r) = pi * r * r 
+  :}
+
+  :{
+  instance Shape (Rectangle Double Double) where
+      shapePerimiter (Rectangle x y) = 2.0 * (x + y)
+      shapeArea (Rectangle x y) = x * y
+  :}    
+
+  > let s1 = Square 10.0 :: Square Double
+  s1 :: Square Double
+  > let s2 = Circle 2.0 :: Circle Double
+  s2 :: Circle Double
+  > let s3 = Rectangle 5.0 4.0 :: Rectangle Double Double
+  s3 :: Rectangle Double Double
+  >
+
+  > :t shapeArea 
+  shapeArea :: Shape a => a -> Double
+  > 
+  > :t shapePerimiter 
+  shapePerimiter :: Shape a => a -> Double
+  > 
+
+
+  > shapePerimiter s1
+  40.0
+  it :: Double
+  > shapePerimiter s2
+  12.566370614359172
+  it :: Double
+  > shapePerimiter s3
+  18.0
+  it :: Double
+  > 
+  > shapeArea s1
+  100.0
+  it :: Double
+  > shapeArea s2
+  12.566370614359172
+  it :: Double
+  > shapeArea s3
+  20.0
+  it :: Double
+  > 
+   
+#+END_SRC
+*** References 
+
+See: 
+
+  - *A Gentle Introduction to Haskell: Classes* Accessed at
+    2017-3-0. Available at
+    <https://www.haskell.org/tutorial/classes.html>
+
+  - *Polymorphism - HaskellWiki* Accessed at 2017-3-5. Available at
+    <https://wiki.haskell.org/Polymorphism>
+
+  - *The Power of Polymorphism* Accessed at 2017-3-5. Available at
+    <http://www2.sys-con.com/itsg/virtualcd/Java/archives/0508/barnabee/index.html>
+
+  - *Lecture Notes, Type Classes in Haskell* Accessed at
+    2017-3-0. Available at
+    <https://john.cs.olemiss.edu/~hcc/csci450/14fall/notes/typeClasses.html>
+
+  - *05-type-classes* Accessed at 2017-3-0. Available at
+    <http://www.seas.upenn.edu/~cis194/spring13/lectures/05-type-classes.html>
+
+  - *Chapter 6. Using Typeclasses* Accessed at 2017-3-0. Available at
+    <http://book.realworldhaskell.org/read/using-typeclasses.html>

@@ -1,0 +1,843 @@
+#+INCLUDE: ../theme/style.org
+#+TITLE: Databases in Haskell - HDBC
+#+DESCRIPTION: Databases in Haskell, database drivers 
+#+KEYWORDS: haskell, database, drivers, hdbc, sqlite, postgres
+
+* Databases - HDBC 
+** Overview 
+
+HDBC is a library that provides a common abstraction or interface to
+different database engines like sqlite, mysql and postgres. The
+communication to each database engine is handled by the database
+driver.
+
+*Documentation:*
+
+| Haskell Database Connectivity library | [[https://hackage.haskell.org/package/HDBC-2.4.0.1/docs/Database-HDBC.html][Database.HDBC]]                           |
+| Sqlite Driver                         | [[https://hackage.haskell.org/package/HDBC-sqlite3][HDBC-sqlite3: Sqlite v3 driver for HDBC]] |
+| Postgresql Driver                     | [[https://hackage.haskell.org/package/HDBC-postgresql-2.3.2.4/docs/Database-HDBC-PostgreSQL.html][Database.HDBC.PostgreSQL]]                |
+| MySQL Driver                          | [[https://hackage.haskell.org/package/HDBC-mysql][HDBC-mysql: MySQL driver for HDBC]]       |
+|                                       |                                         |
+
+
+*Getting a database to play*
+
+#+BEGIN_SRC sh 
+  # Download sample database dump 
+  $ curl -L -o zotero.sql https://github.com/caiorss/zhserver/raw/master/database/zotero-test.sql
+
+  $ du -h zotero.sql 
+  3,0M    zotero.sql
+  3,0M    total
+
+  $ file zotero.sql 
+  zotero.sql: UTF-8 Unicode text, with very long lines, with LF, NEL line terminators
+
+  # Make the database 
+  $ cat zotero.sql | sqlite3 zotero.sqlite
+
+  # Check the file type 
+  $ file zotero.sqlite 
+  zotero.sqlite: SQLite 3.x database, last written using SQLite version 3016002
+
+  sqlite> 
+  sqlite> .tables
+  annotations                itemNotes                
+  baseFieldMappings          itemSeeAlso              
+  baseFieldMappingsCombined  itemTags                 
+  charsets                   itemTypeCreatorTypes     
+  collectionItems            itemTypeFields           
+  collections                itemTypeFieldsCombined   
+  creatorData                itemTypes                
+  creatorTypes               itemTypesCombined        
+  creators                   items                    
+  customBaseFieldMappings    libraries                
+  customFields               proxies                  
+  customItemTypeFields       proxyHosts               
+  customItemTypes            relations            
+     ... ... ... ... ...
+
+
+  sqlite> .headers on
+  sqlite> .mode column
+
+     
+  sqlite> SELECT * FROM tags LIMIT 10 ;
+  tagID       name        type        dateAdded            dateModified         clientDateModified   libraryID   key       
+  ----------  ----------  ----------  -------------------  -------------------  -------------------  ----------  ----------
+  2           fp          0           2016-11-07 22:03:05  2017-02-08 20:10:06  2017-02-08 20:10:06              TCG4NFU2  
+  3           fsharp      0           2016-11-07 22:03:09  2016-11-07 22:03:23  2016-11-07 22:03:23              ZWMIIEA9  
+  4           doc         0           2016-11-07 22:03:11  2016-11-07 22:03:29  2016-11-07 22:03:29              B4SGSEZR  
+  5           overview    0           2016-11-07 22:03:25  2016-11-07 22:03:25  2016-11-07 22:03:25              DP9WBHZJ  
+  6           haskell     0           2016-11-07 22:03:44  2017-02-08 20:10:31  2017-02-08 20:10:31              FSZTVA3J  
+  7           tutorial    0           2016-11-07 22:03:47  2016-11-07 22:03:47  2016-11-07 22:03:47              Z2KJVEKI  
+  8           quickref    0           2016-11-07 22:06:24  2016-11-07 22:07:34  2016-11-07 22:07:34              P67M4AB5  
+  9           linux       0           2016-11-07 22:06:26  2016-11-07 22:07:30  2016-11-07 22:07:30              JQR7943E  
+  10          c++         0           2016-11-07 22:15:22  2017-02-08 20:09:44  2017-02-08 20:09:44              VG2ZRGWM  
+  11          numerical   0           2016-11-07 22:20:56  2016-11-07 22:24:03  2016-11-07 22:24:03              P859CH9I  
+  sqlite> 
+
+
+  sqlite> SELECT * FROM collections LIMIT 10 ;
+  collectionID  collectionName  parentCollectionID  dateAdded            dateModified         clientDateModified   libraryID   key       
+  ------------  --------------  ------------------  -------------------  -------------------  -------------------  ----------  ----------
+  2             Haskell                             2016-11-07 21:50:38  2016-11-07 23:13:55  2016-11-07 23:13:55              PMHEFIBA  
+  3             Haskell doc     2                   2016-11-07 21:50:57  2016-11-07 21:51:18  2016-11-07 21:51:18              CCCGVG4V  
+  5             Haskell Tutori  2                   2016-11-07 21:53:30  2016-11-07 21:54:32  2016-11-07 21:54:32              FRE2DHFB  
+  6             Fsharp                              2016-11-07 21:59:56  2016-11-07 22:01:43  2016-11-07 22:01:43              BICWZD7P  
+  7             Linux                               2016-11-07 22:05:05  2016-11-07 22:07:05  2016-11-07 22:07:05              TIWU5EPF  
+  8             C++/CPP                             2016-11-07 22:11:57  2016-11-07 22:42:28  2016-11-07 22:42:28              42H6QC5D  
+  sqlite>
+#+END_SRC
+
+** Install the Database Drivers 
+
+
+#+BEGIN_SRC sh 
+# Go outside a project 
+$ cd ~
+
+# Install database drivers 
+$ stack install HDBC
+$ stack install HDBC-sqlite3
+$ stack install HDBC-postgresql
+
+# Run Haskell REPL
+$ stack ghci 
+#+END_SRC
+ 
+** Examples 
+*** Example - Simple Database Query 
+
+Connect to sqlite3 database 
+
+#+BEGIN_SRC haskell 
+  import Database.HDBC
+  import Database.HDBC.Sqlite3 
+
+  > conn <- connectSqlite3 "zotero.sqlite" 
+  conn :: Connection
+  > 
+#+END_SRC
+
+Database Metadata
+
+#+BEGIN_SRC haskell 
+  -- Driver name
+  --
+  > hdbcDriverName conn
+  "sqlite3"
+  it :: String
+  > :t hdbcDriverName conn
+  hdbcDriverName conn :: String
+  > 
+
+
+  -- Version of database server
+  --
+  > dbServerVer conn
+  "3.14.1"
+  it :: String
+  > 
+
+  > :t dbServerVer conn
+  dbServerVer conn :: String
+  > 
+
+    
+#+END_SRC
+
+Tables metadata 
+
+#+BEGIN_SRC haskell 
+  > :t getTables 
+  getTables :: IConnection conn => conn -> IO [String]
+  > 
+
+  > getTables conn 
+  ["annotations","baseFieldMappings","baseFieldMappingsCombined","charsets", ...]
+
+
+  -- Print all tables available 
+  --
+  > getTables conn >>= mapM_ putStrLn 
+  annotations
+  baseFieldMappings
+  baseFieldMappingsCombined
+  charsets
+  collectionItems
+  collections
+  creatorData
+  creatorTypes
+  creators
+  customBaseFieldMappings
+  customFields
+  customItemTypeFields
+  customItemTypes
+  deletedItems
+  fieldFormats
+  fields
+  fieldsCombined
+  fileTypeMimeType
+  ...
+  tags
+  transactionLog
+  transactionSets
+  transactions
+  translatorCache
+  users
+  version
+  zoteroDummyTable
+
+
+  -- Show specific table metadata  
+  --
+  --
+  > describeTable conn "tags"
+  [("tagID",SqlColDesc {colType = SqlIntegerT, colSize = Nothing,
+  colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})...]
+
+  > describeTable conn "tags" >>= mapM_ print
+
+  ("tagID",SqlColDesc {colType = SqlIntegerT, colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("name",SqlColDesc {colType = SqlVarCharT, colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("type",SqlColDesc {colType = SqlIntegerT, colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("dateAdded",SqlColDesc {colType = SqlUnknownT "timestamp", colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("dateModified",SqlColDesc {colType = SqlUnknownT "timestamp", colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("clientDateModified",SqlColDesc {colType = SqlUnknownT "timestamp", colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("libraryID",SqlColDesc {colType = SqlIntegerT, colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  ("key",SqlColDesc {colType = SqlVarCharT, colSize = Nothing, colOctetLength = Nothing, colDecDigits = Nothing, colNullable = Nothing})
+  it :: ()
+  > 
+    
+#+END_SRC
+
+
+
+Quick query 
+
+#+BEGIN_SRC haskell 
+  > :t quickQuery
+  quickQuery
+    :: IConnection conn =>
+       conn -> String -> [SqlValue] -> IO [[SqlValue]]
+  >
+
+
+  -- Output: formatted manually in order to fit in the screen. 
+  --
+  --
+  > quickQuery conn "SELECT tagID, name FROM tags WHERE tagID > 80 LIMIT 15" []
+
+  [[SqlInt64 81,SqlByteString "excel"],
+   [SqlInt64 82,SqlByteString "spreadsheet"],
+   [SqlInt64 83,SqlByteString "vba"],
+   [SqlInt64 84,SqlByteString "code"],
+   [SqlInt64 85,SqlByteString "thermodynamics"],
+   [SqlInt64 86,SqlByteString "mechanical"],
+   [SqlInt64 87,SqlByteString "energy"],
+   [SqlInt64 88,SqlByteString "catalog"],
+   [SqlInt64 89,SqlByteString "parts"],
+   [SqlInt64 90,SqlByteString "MVC"],
+   [SqlInt64 91,SqlByteString "hydraulics"],
+   [SqlInt64 92,SqlByteString "manufacturer"],
+   [SqlInt64 93,SqlByteString "design"],
+   [SqlInt64 94,SqlByteString "manual"],
+   [SqlInt64 95,SqlByteString "cable"]]
+  it :: [[SqlValue]]
+
+
+  > quickQuery conn "SELECT tagID, name FROM tags WHERE tagID > 80 LIMIT 15" [] >>= mapM_ print
+  [SqlInt64 81,SqlByteString "excel"]
+  [SqlInt64 82,SqlByteString "spreadsheet"]
+  [SqlInt64 83,SqlByteString "vba"]
+  [SqlInt64 84,SqlByteString "code"]
+  [SqlInt64 85,SqlByteString "thermodynamics"]
+  [SqlInt64 86,SqlByteString "mechanical"]
+  [SqlInt64 87,SqlByteString "energy"]
+  [SqlInt64 88,SqlByteString "catalog"]
+  [SqlInt64 89,SqlByteString "parts"]
+  [SqlInt64 90,SqlByteString "MVC"]
+  [SqlInt64 91,SqlByteString "hydraulics"]
+  [SqlInt64 92,SqlByteString "manufacturer"]
+  [SqlInt64 93,SqlByteString "design"]
+  [SqlInt64 94,SqlByteString "manual"]
+  [SqlInt64 95,SqlByteString "cable"]
+  it :: ()
+  > 
+
+    
+#+END_SRC
+
+
+Query
+
+#+BEGIN_SRC haskell 
+
+
+  let query = unlines $ [
+        "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+        "itemDataValues.valueID = itemData.valueID", 
+        "and itemData.itemID = 5805",
+        "and fields.fieldID = itemData.fieldID"
+        ]
+
+  > putStrLn query 
+  SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE
+  itemDataValues.valueID = itemData.valueID
+  and itemData.itemID = 5805
+  and fields.fieldID = itemData.fieldID
+
+  it :: ()
+  > 
+
+  > :t prepare 
+  prepare :: IConnection conn => conn -> String -> IO Statement
+  > 
+
+  > stmt <- prepare conn query 
+  stmt :: Statement
+  > 
+
+  > 
+  > :t stmt 
+  stmt :: Statement
+  > 
+
+
+  > :t execute
+  execute :: Statement -> [SqlValue] -> IO Integer
+  > 
+  > nrows <- execute stmt []
+  nrows :: Integer
+  > nrows
+  0
+  it :: Integer
+  > 
+
+  > getColumnNames stmt
+  ["fieldName","value"]
+  it :: [String]
+  > 
+    
+  -- ========= fetchAllRows =============== -
+   
+    
+  > rows <- fetchAllRows stmt -- Output changed to fit on the screen.
+  rows :: [[SqlValue]]
+  > rows
+  [[SqlByteString "url",SqlByteString "http://www.eliza.ch/doc/wadler92essence_of_FP.pdf"]
+    ,[SqlByteString "place",SqlByteString "Albuquerque, NM, USA"],
+     [SqlByteString "publisher",SqlByteString "ACM"],
+     [SqlByteString "pages",SqlByteString "1-14"],
+     [SqlByteString "date",SqlByteString "1992-00-00 1992"],
+     [SqlByteString "DOI",SqlByteString "10.1145/143165.143169"],
+     [SqlByteString "accessDate",SqlByteString "2016-04-04 20:05:57"],
+     [SqlByteString "language",SqlByteString "en"],
+     [SqlByteString "title",SqlByteString "The essence of functional programming"],
+     [SqlByteString "proceedingsTitle",SqlByteString "POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages"]]
+  it :: [[SqlValue]]
+
+  > 
+  > mapM_ print rows
+  [SqlByteString "url",SqlByteString "http://www.eliza.ch/doc/wadler92essence_of_FP.pdf"]
+  [SqlByteString "place",SqlByteString "Albuquerque, NM, USA"]
+  [SqlByteString "publisher",SqlByteString "ACM"]
+  [SqlByteString "pages",SqlByteString "1-14"]
+  [SqlByteString "date",SqlByteString "1992-00-00 1992"]
+  [SqlByteString "DOI",SqlByteString "10.1145/143165.143169"]
+  [SqlByteString "accessDate",SqlByteString "2016-04-04 20:05:57"]
+  [SqlByteString "language",SqlByteString "en"]
+  [SqlByteString "title",SqlByteString "The essence of functional programming"]
+  [SqlByteString "proceedingsTitle",SqlByteString "POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages"]
+  it :: ()
+  > 
+
+  > let sqlRowToString = map (fromSql :: SqlValue -> String)
+  - 
+  sqlRowToString :: [SqlValue] -> [String]
+  > 
+  > mapM_ print $ map sqlRowToString rows 
+  ["url","http://www.eliza.ch/doc/wadler92essence_of_FP.pdf"]
+  ["place","Albuquerque, NM, USA"]
+  ["publisher","ACM"]
+  ["pages","1-14"]
+  ["date","1992-00-00 1992"]
+  ["DOI","10.1145/143165.143169"]
+  ["accessDate","2016-04-04 20:05:57"]
+  ["language","en"]
+  ["title","The essence of functional programming"]
+  ["proceedingsTitle","POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages"]
+  it :: ()
+  > 
+
+  > let sqlRowToLine row = unwords $ map (fromSql :: SqlValue -> String) row
+  - 
+  sqlRowToLine :: [SqlValue] -> String
+  >
+
+  > mapM_ putStrLn $ map sqlRowToLine rows 
+  url http://www.eliza.ch/doc/wadler92essence_of_FP.pdf
+  place Albuquerque, NM, USA
+  publisher ACM
+  pages 1-14
+  date 1992-00-00 1992
+  DOI 10.1145/143165.143169
+  accessDate 2016-04-04 20:05:57
+  language en
+  title The essence of functional programming
+  proceedingsTitle POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages
+  it :: ()
+  > 
+  > 
+    
+    
+  > fetchAllRows stmt 
+  []
+  it :: [[SqlValue]]
+  > 
+
+
+  -- ================  fetchAllRowsAL  ======================= ---
+    
+  > stmt <- prepare conn query 
+  stmt :: Statement
+
+  > execute stmt []
+  0
+  it :: Integer
+  > 
+
+  > 
+  > rows <- fetchAllRowsAL stmt
+  rows :: [[(String, SqlValue)]]
+
+  > mapM_ print rows
+  [("fieldName",SqlByteString "url"),("value",SqlByteString "http://www.eliza.ch/doc/wadler92essence_of_FP.pdf")]
+  [("fieldName",SqlByteString "place"),("value",SqlByteString "Albuquerque, NM, USA")]
+  [("fieldName",SqlByteString "publisher"),("value",SqlByteString "ACM")]
+  [("fieldName",SqlByteString "pages"),("value",SqlByteString "1-14")]
+  [("fieldName",SqlByteString "date"),("value",SqlByteString "1992-00-00 1992")]
+  [("fieldName",SqlByteString "DOI"),("value",SqlByteString "10.1145/143165.143169")]
+  [("fieldName",SqlByteString "accessDate"),("value",SqlByteString "2016-04-04 20:05:57")]
+  [("fieldName",SqlByteString "language"),("value",SqlByteString "en")]
+  [("fieldName",SqlByteString "title"),("value",SqlByteString "The essence of functional programming")]
+  [("fieldName",SqlByteString "proceedingsTitle"),("value",SqlByteString "POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages")]
+  it :: ()
+  > 
+
+  -- =============== fetchAllRowsMap ================== --
+
+  > stmt <- prepare conn query 
+  stmt :: Statement
+
+  > execute stmt []
+  0
+
+  > rows <- fetchAllRowsMap stmt
+  rows :: [containers-0.5.7.1:Data.Map.Base.Map String SqlValue]
+  > 
+  > mapM_ print rows
+  fromList [("fieldName",SqlByteString "url"),("value",SqlByteString "http://www.eliza.ch/doc/wadler92essence_of_FP.pdf")]
+  fromList [("fieldName",SqlByteString "place"),("value",SqlByteString "Albuquerque, NM, USA")]
+  fromList [("fieldName",SqlByteString "publisher"),("value",SqlByteString "ACM")]
+  fromList [("fieldName",SqlByteString "pages"),("value",SqlByteString "1-14")]
+  fromList [("fieldName",SqlByteString "date"),("value",SqlByteString "1992-00-00 1992")]
+  fromList [("fieldName",SqlByteString "DOI"),("value",SqlByteString "10.1145/143165.143169")]
+  fromList [("fieldName",SqlByteString "accessDate"),("value",SqlByteString "2016-04-04 20:05:57")]
+  fromList [("fieldName",SqlByteString "language"),("value",SqlByteString "en")]
+  fromList [("fieldName",SqlByteString "title"),("value",SqlByteString "The essence of functional programming")]
+  fromList [("fieldName",SqlByteString "proceedingsTitle"),("value",SqlByteString "POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages")]
+  it :: ()
+  > 
+    
+
+
+#+END_SRC
+
+
+Query Item by ID 
+
+#+BEGIN_SRC haskell 
+
+
+  :{
+  queryItemByID ::  IConnection conn => Int -> conn -> IO [[SqlValue]]
+  queryItemByID itemID conn = do
+    stmt <- prepare conn query
+    execute stmt [toSql itemID]
+    rows <- fetchAllRows stmt 
+    return rows 
+    where
+      query = unlines $ [ "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+                          "itemDataValues.valueID = itemData.valueID", 
+                          "and itemData.itemID = ?",
+                          "and fields.fieldID = itemData.fieldID"
+                        ]
+  :}
+
+  queryItemByID :: IConnection conn => Int -> conn -> IO [[SqlValue]]
+
+  > queryItemByID 5569 conn >>= mapM_ print
+  [SqlByteString "title",SqlByteString "From Stochastic Calculus to Mathematical Finance-Kabanov.pdf"]
+  it :: ()
+  > 
+
+  > queryItemByID 5790 conn >>= mapM_ print
+  [SqlByteString "url",SqlByteString "http://twanvl.nl/blog/haskell/building-pipes-with-monad-transformers"]
+  [SqlByteString "accessDate",SqlByteString "2016-04-04 16:45:25"]
+  [SqlByteString "title",SqlByteString "Building pipes with monad transformers"]
+  it :: ()
+  > 
+
+  > queryItemByID 5805 conn >>= mapM_ print
+  [SqlByteString "url",SqlByteString "http://www.eliza.ch/doc/wadler92essence_of_FP.pdf"]
+  [SqlByteString "place",SqlByteString "Albuquerque, NM, USA"]
+  [SqlByteString "publisher",SqlByteString "ACM"]
+  [SqlByteString "pages",SqlByteString "1-14"]
+  [SqlByteString "date",SqlByteString "1992-00-00 1992"]
+  [SqlByteString "DOI",SqlByteString "10.1145/143165.143169"]
+  [SqlByteString "accessDate",SqlByteString "2016-04-04 20:05:57"]
+  [SqlByteString "language",SqlByteString "en"]
+  [SqlByteString "title",SqlByteString "The essence of functional programming"]
+  [SqlByteString "proceedingsTitle",SqlByteString "POPL '92 Proceedings of the 19th ACM SIGPLAN-SIGACT symposium on Principles of programming languages"]
+  it :: ()
+  > 
+
+    
+#+END_SRC
+
+
+Disconnect 
+
+#+BEGIN_SRC haskell 
+  > :t disconnect 
+  disconnect :: IConnection conn => conn -> IO ()
+  > 
+
+  > disconnect conn
+  it :: ()
+  >   
+#+END_SRC
+
+
+ 
+
+
+*** Example - Datbase query with ReaderT monad transformer. 
+
+Note: The type of the monad is =ReaderT r m= without the parameter of
+return value a.
+
+ - Documentation: [[https://hackage.haskell.org/package/mtl-2.2.1/docs/Control-Monad-Reader.html][Control.Monad.Reader]]
+
+|               | Signature                                      | Description                                                           |
+|---------------+------------------------------------------------+-----------------------------------------------------------------------|
+|               |                                                |                                                                       |
+| ReaderT r m a |                                                | Encapsulates a function or computation (a -> m b) where m is a monad. |
+| ReaderT       | (r -> m a) -> ReaderT r m a                    |                                                                       |
+|               |                                                |                                                                       |
+| runReaderT    | ReaderT r m a -> r -> m a                      | Run computation and get its value.                                    |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+| return        | a -> (ReaderT r m) a                           | Monad return function.                                                |
+| (>>=)         | a -> (ReaderT r m) b -> (ReaderT r m) b        | Monad bind function.                                                  |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+| fmap          | (a -> b) -> (ReaderT r m) a -> (ReaderT r m) b | Apply a function (a -> b) to the result of computation Reader r a.    |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+| ask           | m r                                            | Read environment or configuration.                                    |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+| local         | (r -> r) -> m a -> m a                         | Modify environment by applying a function to it.                      |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+| liftIO        | MonadIO m => IO a -> m a                       |                                                                       |
+| liftIO        | IO a -> (Reader r m) a                         |                                                                       |
+|               |                                                |                                                                       |
+|               |                                                |                                                                       |
+
+Example: This example will need the database and the haskell packages
+shown in  [[file:DatabaseHDBC.org][Databases - HDBC package]]
+
+
+#+BEGIN_SRC haskell 
+  import Control.Monad (mapM_, forM_)
+  import Control.Monad.Reader 
+
+  import qualified Database.HDBC as HDBC
+  import Database.HDBC.Sqlite3 
+
+  -- In file add the lines
+  {-# LANGUAGE OverloadedStrings #-}
+  {-# LANGUAGE RankNTypes #-}
+  {-# LANGUAGE FlexibleContexts #-}
+
+  -- In the REPL
+  :set -XOverloadedStrings
+  :set -XRankNTypes
+      
+  :{
+  fromSqlToInt :: HDBC.SqlValue -> Int
+  fromSqlToInt  sv = HDBC.fromSql sv  
+  :}
+
+  :{ 
+  fromSqlToString :: HDBC.SqlValue -> String
+  fromSqlToString sv = HDBC.fromSql sv 
+  :}
+
+  :{
+  {- | Convert number to HDBC value -}
+  fromIntToHDBC :: Int -> HDBC.SqlValue
+  fromIntToHDBC n = HDBC.SqlInt64 $ fromIntegral n                 
+  :}
+
+   {- | Convert string to HDBC string -}                  
+  fromStrToHDBC s = HDBC.SqlString s                 
+     
+   
+  conn <- connectSqlite3 "zotero.sqlite" 
+
+
+  :{
+  queryItemByIDRaw ::  HDBC.IConnection conn => Int -> conn -> IO [(String, String)]
+  queryItemByIDRaw itemID conn = do
+    stmt <- HDBC.prepare conn query
+    HDBC.execute stmt [HDBC.toSql itemID]
+    rows <- HDBC.fetchAllRows stmt 
+    return $ map projection rows 
+    where
+      projection row = (fromSqlToString $ row !! 0, fromSqlToString $ row !! 1)
+                       
+      query = unlines $ [ "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+                          "itemDataValues.valueID = itemData.valueID", 
+                          "and itemData.itemID = ?",
+                          "and fields.fieldID = itemData.fieldID"
+                        ]
+  :}
+
+   
+  > :t queryItemByIDRaw 10 conn
+  queryItemByIDRaw 10 conn :: IO [(String, String)]
+  > 
+  > queryItemByIDRaw 10 conn
+  [("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf"),("accessDate","2016-11-07 22:00:06"),("title","FSharpSpec-4.0-latest.pdf")]
+  it :: [(String, String)]
+
+  > queryItemByIDRaw 10 conn >>= mapM_ print
+  ("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf")
+  ("accessDate","2016-11-07 22:00:06")
+  ("title","FSharpSpec-4.0-latest.pdf")
+  it :: ()
+  > 
+  > queryItemByIDRaw 16 conn >>= mapM_ print
+  ("url","http://www.digilife.be/quickreferences/QRC/LINUX%20Admin%20Quick%20Reference.pdf")
+  ("accessDate","2016-11-07 22:06:48")
+  ("title","linux_quickref.PDF - LINUX Admin Quick Reference.pdf")
+  it :: ()
+
+        
+  {- | Transform this computation to ReaderT monad with database connection as the 
+       implicit parameter or configuration. 
+   -}
+  :{
+  queryItemByID1 ::  HDBC.IConnection conn => Int -> ReaderT conn IO [(String, String)]
+  queryItemByID1 itemID = ReaderT $ \ conn -> do                      
+    stmt <- liftIO $ HDBC.prepare conn query
+    liftIO $ HDBC.execute stmt [HDBC.toSql itemID]
+    rows <- liftIO $ HDBC.fetchAllRows stmt 
+    return $ map projection rows 
+    where
+      projection row = (fromSqlToString $ row !! 0, fromSqlToString $ row !! 1)
+                       
+      query = unlines $ [ "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+                          "itemDataValues.valueID = itemData.valueID", 
+                          "and itemData.itemID = ?",
+                          "and fields.fieldID = itemData.fieldID"
+                        ]
+  :}
+
+
+  > :t runReaderT
+  runReaderT :: ReaderT r m a -> r -> m a
+
+  > :t queryItemByID1 10
+  queryItemByID1 10
+    :: IConnection conn => ReaderT conn IO [(String, String)]
+  > 
+
+  > :t runReaderT (queryItemByID1 10) conn 
+  runReaderT (queryItemByID1 10) conn :: IO [(String, String)]
+  > 
+
+  > runReaderT (queryItemByID1 10) conn
+  [("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf"),("accessDate","2016-11-07 22:00:06"),("title","FSharpSpec-4.0-latest.pdf")]
+  it :: [(String, String)]
+  > 
+
+  > runReaderT (queryItemByID1 10) conn >>= mapM_ print
+  ("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf")
+  ("accessDate","2016-11-07 22:00:06")
+  ("title","FSharpSpec-4.0-latest.pdf")
+  it :: ()
+  > 
+  > 
+
+  -- =======================================================================      
+  {- |  Variation 2 - Simplify - ReaderT conn IO [(String, String)]  -}
+
+  {- | Database Connection -> DbConn a = ReaderT conn IO a = conn -> IO a -}
+  type DBConn a = forall conn. (HDBC.IConnection conn) =>  ReaderT conn IO a
+
+
+  :{
+  queryItemByID2 :: Int -> DBConn [(String, String)]
+  queryItemByID2 itemID = ReaderT $ \ conn -> do                      
+    stmt <- liftIO $ HDBC.prepare conn query
+    liftIO $ HDBC.execute stmt [HDBC.toSql itemID]
+    rows <- liftIO $ HDBC.fetchAllRows stmt 
+    return $ map projection rows 
+    where
+      projection row = (fromSqlToString $ row !! 0, fromSqlToString $ row !! 1)                    
+      query = unlines $ [ "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+                          "itemDataValues.valueID = itemData.valueID", 
+                          "and itemData.itemID = ?",
+                          "and fields.fieldID = itemData.fieldID"
+                        ]
+  :}
+
+   
+  > :t queryItemByID2 10
+  queryItemByID2 10
+    :: IConnection conn => ReaderT conn IO [(String, String)]
+  > 
+
+  > runReaderT (queryItemByID2 10) conn
+  [("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf"),("accessDate","2016-11-07 22:00:06"),("title","FSharpSpec-4.0-latest.pdf")]
+  it :: [(String, String)]
+  > 
+  > runReaderT (queryItemByID2 10) conn >>= mapM_ print
+  ("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf")
+  ("accessDate","2016-11-07 22:00:06")
+  ("title","FSharpSpec-4.0-latest.pdf")
+  it :: ()
+  > 
+
+
+  -- =======================================================================      
+  {- |  Variation 3 - It can be simplified and generalized even further. -}
+
+  type SQL = String
+  type DBConn a = forall conn. (HDBC.IConnection conn) =>  ReaderT conn IO a
+
+  :{    
+  sqlQueryAll :: SQL -> [HDBC.SqlValue] -> ([HDBC.SqlValue] -> b) -> DBConn [b]     
+  sqlQueryAll sql sqlvals projection = do
+    con     <- ask 
+    stmt    <- liftIO $ HDBC.prepare con sql
+    liftIO  $  HDBC.execute stmt sqlvals  
+    rows    <- liftIO $ HDBC.fetchAllRows stmt
+    return (fmap projection rows)
+  :}
+
+   
+
+  :{
+  queryItemByID3 :: Int -> DBConn [(String, String)]
+  queryItemByID3 itemID = sqlQueryAll query [fromIntToHDBC itemID] projection
+    where
+      projection row = (fromSqlToString $ row !! 0, fromSqlToString $ row !! 1)                    
+      query = unlines $ [ "SELECT fieldName, value FROM itemDataValues, itemData, fields WHERE", 
+                          "itemDataValues.valueID = itemData.valueID", 
+                          "and itemData.itemID = ?",
+                          "and fields.fieldID = itemData.fieldID"
+                        ]
+  :}
+
+
+  > runReaderT (queryItemByID3 10) conn
+  [("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf"),("accessDate","2016-11-07 22:00:06"),("title","FSharpSpec-4.0-latest.pdf")]
+  it :: [(String, String)]
+  > 
+  > runReaderT (queryItemByID3 10) conn >>= mapM_ print
+  ("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf")
+  ("accessDate","2016-11-07 22:00:06")
+  ("title","FSharpSpec-4.0-latest.pdf")
+  it :: ()
+  > 
+  >
+
+  -- | Get all tags associated with a given item
+  :{
+  getItemTags :: Int -> DBConn [(Int, String)]
+  getItemTags itemID = do  
+    sqlQueryAll sql [fromIntToHDBC itemID] projection
+    where
+      sql = unlines ["SELECT  tags.tagID, tags.name",
+                     "FROM    itemTags, tags", 
+                     "WHERE   itemTags.tagID = tags.tagID", 
+                     "AND     itemID = ?"
+                     ]
+
+      projection xs = (fromSqlToInt (xs !! 0), fromSqlToString (xs !! 1))
+  :}
+
+
+  > runReaderT (getItemTags 12) conn
+  [(2,"fp"),(3,"fsharp"),(4,"doc"),(5,"overview")]
+  it :: [(Int, String)]
+  > 
+  > runReaderT (getItemTags 13) conn
+  [(2,"fp"),(3,"fsharp"),(4,"doc")]
+  it :: [(Int, String)]
+  > 
+
+
+  :{
+  showItem :: Int -> DBConn ()
+  showItem itemID = do
+    itemData <- queryItemByID3 itemID  
+    tags   <- getItemTags itemID
+
+    -- liftIO :: IO () => DBConn ()          
+    liftIO $ do
+      putStrLn "Item Data"
+      putStrLn "---------------------------"             
+      forM_ itemData print
+      putStrLn "Item Tags"
+      putStrLn "---------------------------"
+      forM_ tags print     
+  :}   
+
+  > runReaderT (showItem 12) conn
+  Item Data
+  ---------------------------
+  ("url","http://tomasp.net/articles/fsharp-i-introduction/article.pdf")
+  ("accessDate","2016-11-07 22:01:04")
+  ("title","F# Language Overview")
+  Item Tags
+  ---------------------------
+  (2,"fp")
+  (3,"fsharp")
+  (4,"doc")
+  (5,"overview")
+  it :: ()
+  > 
+  > 
+
+  > runReaderT (showItem 13) conn
+  Item Data
+  ---------------------------
+  ("url","http://fsharp.org/specs/language-spec/4.0/FSharpSpec-4.0-latest.pdf")
+  ("accessDate","2016-11-07 22:00:06")
+  ("title","The F# 4.0 Language Specification")
+  Item Tags
+  ---------------------------
+  (2,"fp")
+  (3,"fsharp")
+  (4,"doc")
+  it :
+#+END_SRC
+

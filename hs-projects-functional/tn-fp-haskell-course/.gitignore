@@ -1,0 +1,5 @@
+.direnv
+.venv
+bin
+dist-newstyle
+slides/*.java

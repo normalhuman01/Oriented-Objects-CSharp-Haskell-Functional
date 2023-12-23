@@ -1,0 +1,65 @@
+#+TITLE: Functional Programming by Example
+#+AUTHOR: -
+#+EMAIL:  -
+#+DESCRIPTION: Functional programming examples, theory, 
+#+URL:   https://github.com/caiorss/Functional-Programming
+
+#+HTML_HEAD: <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
+#+HTML_HEAD: <link href="/Functional-Programming/theme/style.css" rel="stylesheet">
+#+HTML_HEAD: <script src="/Functional-Programming/theme/org-nav-theme.js"></script>
+
+# * Functional Programming by Example
+
+[[file:haskell/images/haskellLogo.png][file:haskell/images/haskellLogo.png]]
+
+The purpose of this tutorial is to illustrate functional programming
+concepts in many languages by providing reusable and useful snippets
+of code, examples, case studies and applications. 
+
+Author:  [[https://www.linkedin.com/in/caiorodrigues][Caio Rodrigues]] / <caiorss DOT rodrigue AT gmail DOT com> 
+
+Notes: 
+ + This is a endless work in progress.
+ + This repository is dedicated to public domain.
+
+This repository can be accessed from the following URLs:
+
+ - https://github.com/caiorss/Functional-Programming
+
+ - http://tinyurl.com/fpbyexample
+
+The website of this repository is: 
+
+ + http://caiorss.github.io/Functional-Programming
+
+   + The project's web site was updated and improved with a table of
+     contents on side-bar. In addition, the new layout makes reading
+     easier to read and browse the content.
+
+   + Those pages in the theme are in the gh-pages branch which can
+     easy be downloaded for offline usage.
+
+*General*
+
+ - [[file:haskell/Functional_Programming_Concepts.org][Functional Programming Concepts]]
+
+*Statically Typed Programming Languages with Type Inference*
+
+ - [[file:haskell/README.org][Haskell]]
+
+ - [[file:ocaml/README.org][OCaml]]
+
+ - [[file:scala/README.org][Scala]] (JVM / Java Platform)
+
+ - [[file:scala/PRACTICAL_RECIPES.org][Scala Recipes]] - Practical examples about Scala.
+
+*Dynamically Typed Programming Languages*
+
+ - [[file:scheme/README.org][Scheme]] 
+
+ - [[file:clojure/README.org][Clojure]] (JVM / Java Platform) 
+        
+*Papers* 
+
+ - [[file:papers/README.org][Papers in this Repository]]
+
