@@ -1,1 +1,1 @@
-# Oriented-Objects-CSharp-Haskell-Functional
+# Oriented Objects CSharp Haskell Functional
