@@ -1,0 +1,15 @@
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.csproj.AssemblyReference.cache
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.GeneratedMSBuildEditorConfig.editorconfig
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.AssemblyInfoInputs.cache
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.AssemblyInfo.cs
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.csproj.CoreCompileInputs.cache
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\bin\Debug\net7.0\ProgramaAssincrono.exe
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\bin\Debug\net7.0\ProgramaAssincrono.deps.json
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\bin\Debug\net7.0\ProgramaAssincrono.runtimeconfig.json
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\bin\Debug\net7.0\ProgramaAssincrono.dll
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\bin\Debug\net7.0\ProgramaAssincrono.pdb
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.dll
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\refint\ProgramaAssincrono.dll
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.pdb
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ProgramaAssincrono.genruntimeconfig.cache
+C:\CSharp\ProgramaAssincrono\ProgramaAssincrono\obj\Debug\net7.0\ref\ProgramaAssincrono.dll

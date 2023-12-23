@@ -1,0 +1,5 @@
+Este es un ejemplo de archivo.
+Esto se pone bueno.
+Ahora todos mis datos iran a archivos.
+C++ es el mejor de los lenguajes.
+Todos somos UNI-FIM este 12 de Junio.
